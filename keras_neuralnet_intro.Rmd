@@ -1,0 +1,474 @@
+---
+title: "| DataFest 2019 \n| Introduction to Neural Nets and Keras \n"
+author: "Marcel Neunhoeffer - University of Mannheim"
+date: "03 May 2019"
+output:
+  html_document: default
+  html_notebook:
+    toc: yes
+  pdf_document: default
+  word_document:
+    toc: yes
+---
+
+
+```{r setup, echo=FALSE, include=FALSE}
+# Load the libraries, install if needed.
+
+p_needed <-
+  c("devtools",
+    "keras")
+packages <- rownames(installed.packages())
+p_to_install <- p_needed[!(p_needed %in% packages)]
+if (length(p_to_install) > 0) {
+  install.packages(p_to_install)
+}
+check <- sapply(p_needed, require, character.only = TRUE)
+
+if (!check["keras"]) {
+  devtools::install_github("rstudio/keras")
+  library(keras)
+  install_keras()
+}
+```
+
+# Introduction to Keras
+
+[Keras](https://keras.io) is a high-level neural networks API, written in Python and capable of running on top of TensorFlow, CNTK, or Theano. It was developed with a focus on enabling fast experimentation. Being able to go from idea to result with the least possible delay is key to doing good research.
+
+Use Keras if you need a deep learning library that:
+
++ Allows for easy and fast prototyping (through user friendliness, modularity, and extensibility).
++ Supports both convolutional networks and recurrent networks, as well as combinations of the two.
+
++ Runs seamlessly on CPU and GPU.
+
++ Runs on Python as well as in R! 
+
+
+## Installing Keras
+
+Keras in R will need the python libraries of keras and tensorflow to run in the background. Therefore, the installation of the package is slightly different than with usual R-packages.
+
+```{r Installing keras in R, eval = F}
+devtools::install_github("rstudio/keras")
+library(keras)
+install_keras()
+```
+
+## A first pseudo model in Keras
+
+Models in Keras always follow the same structure
+
+### Prepare the data
+```{r Data preparation, eval = F}
+sel <- sample(nrow(data), floor(0.7 * nrow(data)))
+
+x_train <- as.matrix(data[sel, Xcolumns])
+y_train <- data[sel, ycolumn]
+
+x_test <- as.matrix(data[-sel, Xcolumns])
+y_test <- data[-sel, ycolumns]
+```
+
+
+### Define
+```{r Define keras model, eval = F}
+model <- keras_model_sequential()
+model %>%
+  layer_dense(units = 1,
+              activation = 'sigmoid',
+              input_shape = c(2)) 
+```
+
+
+### Compile
+```{r Compile the model, eval = F}
+model %>% compile(
+  loss = 'binary_crossentropy',
+  optimizer = optimizer_rmsprop(),
+  metrics = c('accuracy')
+)
+```
+
+### Fit:
+```{r Fit the model, eval = F}
+history <- model %>% fit(
+  x_train,
+  y_train,
+  epochs = 30,
+  batch_size = 128,
+  validation_split = 0.2
+)
+
+plot(history)
+```
+
+
+### Evaluate:
+```{r Evaluate the model, eval = F}
+model %>% evaluate(x_test, y_test)
+```
+
+### Predict:
+```{r Use the model to predict, eval = F}
+model %>% predict_classes(x_test)
+```
+
+# Logit Regression in Keras
+```{r Create interesting data}
+two_spirals <- function(N = 1000,
+                        radians = 3 * pi,
+                        theta0 = pi / 2,
+                        labels = 0:1) {
+  N1 <- floor(N / 2)
+  N2 <- N - N1
+  
+  theta <- theta0 + runif(N1) * radians
+  spiral1 <- cbind(-theta * cos(theta) + runif(N1),
+                   theta * sin(theta) + runif(N1))
+  spiral2 <-
+    cbind(theta * cos(theta) + runif(N2), -theta * sin(theta) + runif(N2))
+  
+  points <- rbind(spiral1, spiral2)
+  classes <- c(rep(0, N1), rep(1, N2))
+  
+  data.frame(
+    x1 = points[, 1],
+    x2 = points[, 2],
+    class = factor(classes, labels = labels)
+  )
+}
+
+set.seed(42)
+df <- two_spirals(labels = c('Yay', 'Nay'))
+```
+
+```{r A first look at the data}
+plot(
+  df$x1,
+  df$x2,
+  xlab = "x1",
+  ylab = "x2",
+  main = "Spiral Data",
+  col = ifelse(
+    df$class == "Yay",
+    adjustcolor("blue", alpha = 0.5),
+    adjustcolor("orange", alpha = 0.5)
+  ),
+  pch = 19,
+  bty = "n",
+  las = 1
+)
+```
+
+**What do you think: How would a logit model divide the data?**
+
+Let's find out!
+
+## Prepare the data for keras
+
+```{r Data Preparation I}
+# Select a random sample
+sel <- sample(1:1000, 700)
+
+x_train <- as.matrix(df[sel, 1:2])
+y_train <- ifelse(df[sel, 3] == "Yay", 1, 0)
+
+x_test <- as.matrix(df[-sel, 1:2])
+y_test <- ifelse(df[-sel, 3] == "Yay", 1, 0)
+```
+
+## Define the keras model
+
+```{r Define keras model I}
+model <- keras_model_sequential()
+model %>%
+  layer_dense(units = 1,
+              activation = 'sigmoid',
+              input_shape = c(2)) 
+```
+
+## Compile the keras model
+
+```{r Compile the model I}
+model %>% compile(
+  loss = 'binary_crossentropy',
+  optimizer = optimizer_rmsprop(),
+  metrics = c('accuracy')
+)
+```
+
+## Fit the model
+
+```{r Fit the model I}
+history <- model %>% fit(
+  x_train,
+  y_train,
+  epochs = 30,
+  batch_size = 128,
+  validation_split = 0.2
+)
+
+plot(history)
+```
+
+## Evaluate the model
+
+```{r Evaluate the model I}
+model %>% evaluate(x_test, y_test)
+```
+
+## Make predictions with the model
+
+```{r Use the model to predict I}
+# Predict class labels
+y_pred <- model %>% predict_classes(x_test)
+
+# Predicted probabilities
+y_pred_prob <- model %>% predict(x_test)
+```
+
+## Plot the predictions
+
+```{r Plot the predictions I}
+plot(
+  x_test[, 1],
+  x_test[, 2],
+  xlab = "x1",
+  ylab = "x2",
+  main = "Spiral Data",
+  col = ifelse(
+    y_pred == 1,
+    adjustcolor("blue", alpha = 0.5),
+    adjustcolor("orange", alpha = 0.5)
+  ),
+  pch = 19,
+  bty = "n",
+  las = 1
+)
+```
+
+## Plot the decision surface
+
+```{r Plot the decision surface I}
+x_surface <-
+  cbind(runif(10000, min = min(df$x1), max = max(df$x1)),
+        runif(10000, min = min(df$x2), max = max(df$x2)))
+
+# Predicted probabilities
+y_pred_prob_surface <- model %>% predict(x_surface)
+
+col_val <- NULL
+for (i in 1:nrow(y_pred_prob_surface)) {
+  col_val <-
+    c(col_val,
+      ifelse(
+        y_pred_prob_surface[i] > 0.5,
+        adjustcolor("blue", alpha = y_pred_prob_surface[i]),
+        adjustcolor("orange", alpha = 1 - y_pred_prob_surface[i])
+      ))
+}
+
+plot(
+  x_surface[, 1],
+  x_surface[, 2],
+  xlab = "x1",
+  ylab = "x2",
+  main = "Spiral Data - Decision Surface Logit",
+  col = col_val,
+  pch = 19,
+  bty = "n",
+  las = 1
+)
+```
+
+That's a bit disappointing.
+
+Our hope is that a neural net could do a better job!
+
+# Neural Nets
+
+Now you will see how simple it is to code a neural net in keras. In fact we only have to make simple changes to our code.
+
+## Define the keras model
+
+```{r Define keras model II}
+model <- keras_model_sequential()
+model %>%
+  layer_dense(units = 128,
+              activation = 'relu',
+              input_shape = c(2)) %>%
+  layer_dense(units = 64, activation = 'relu') %>%
+  layer_dense(units = 1, activation = 'sigmoid')
+
+summary(model)
+```
+
+## Compile the keras model
+
+```{r Compile the model II}
+model %>% compile(
+  loss = 'binary_crossentropy',
+  optimizer = optimizer_rmsprop(),
+  metrics = c('accuracy')
+)
+```
+
+## Fit the model
+
+```{r Fit the model II}
+history <- model %>% fit(
+  x_train,
+  y_train,
+  epochs = 300,
+  batch_size = 128,
+  validation_split = 0.2
+)
+
+plot(history)
+```
+
+## Evaluate the model
+
+```{r Evaluate the model II}
+model %>% evaluate(x_test, y_test)
+```
+
+## Make predictions with the model
+
+```{r Use the model to predict II}
+# Predict class labels
+y_pred <- model %>% predict_classes(x_test)
+
+# Predicted probabilities
+y_pred_prob <- model %>% predict(x_test)
+```
+
+## Plot the predictions
+
+```{r Plot the predictions II}
+plot(
+  x_test[, 1],
+  x_test[, 2],
+  xlab = "x1",
+  ylab = "x2",
+  main = "Spiral Data - Predictions from a Neural Net",
+  col = ifelse(
+    y_pred == 1,
+    adjustcolor("blue", alpha = 0.5),
+    adjustcolor("orange", alpha = 0.5)
+  ),
+  pch = 19,
+  bty = "n",
+  las = 1
+)
+```
+
+## Plot the prediction surface
+
+```{r Plot the decision surface II}
+x_surface <-
+  cbind(runif(10000, min = min(df$x1), max = max(df$x1)),
+        runif(10000, min = min(df$x2), max = max(df$x2)))
+
+# Predicted probabilities
+y_pred_prob_surface <- model %>% predict(x_surface)
+
+col_val <- NULL
+for (i in 1:nrow(y_pred_prob_surface)) {
+  col_val <-
+    c(col_val,
+      ifelse(
+        y_pred_prob_surface[i] > 0.5,
+        adjustcolor("blue", alpha = y_pred_prob_surface[i]),
+        adjustcolor("orange", alpha = 1 - y_pred_prob_surface[i])
+      ))
+}
+
+plot(
+  x_surface[, 1],
+  x_surface[, 2],
+  xlab = "x1",
+  ylab = "x2",
+  main = "Spiral Data - Decision Surface Neural Net",
+  col = col_val,
+  pch = 19,
+  bty = "n",
+  las = 1
+)
+```
+
+# Tuning a neural net
+
+There are many things to consider in each step of coding a neural net.
+
+Models in Keras always follow the same structure
+
+**Prepare the data:**
+```{r Data preparation again, eval = F}
+sel <- sample(nrow(data), floor(0.7 * nrow(data)))
+
+x_train <- data[sel, Xcolumns]
+y_train <- data[sel, ycolumn]
+
+x_test <- data[-sel, Xcolumns]
+y_test <- data[-sel, ycolumns]
+```
+
++ How do you want to split your data? 
++ What if your data is not i.i.d (E.g. Time-Series data)?
+
+**Define:**
+```{r Define keras model again, eval = F}
+model <- keras_model_sequential()
+model %>%
+  layer_dense(units = 1,
+              activation = 'sigmoid',
+              input_shape = c(2))
+```
+
+You can experiment with:
+
++ The number of layers.
++ The number of units per layer (have a look at popular neural net architectures).
++ The activation function for each layer.
+
+Additionally:
+
++ How to deal with overfitting?
++ Regularization?
++ Dropout?
+
+
+**Compile:**
+```{r Compile the model again, eval = F}
+model %>% compile(
+  loss = 'binary_crossentropy',
+  optimizer = optimizer_rmsprop(),
+  metrics = c('accuracy')
+)
+```
+
++ What is the loss function for your problem?
++ What evaluation metrics do you want to look at?
++ Choose a different optimizer.
+
+**Fit:**
+```{r Fit the model again, eval = F}
+history <- model %>% fit(
+  x_train,
+  y_train,
+  epochs = 30,
+  batch_size = 128,
+  validation_split = 0.2
+)
+
+plot(history)
+```
+
++ For how many epochs do you want to train your net?
++ How big should one training batch be?
++ How much data do you want to have in you validation set?
+
+
